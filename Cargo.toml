@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "apps/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+glam = { version = "0.34", features = ["serde"] }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+rg-core = { path = "crates/rg-core" }
+rg-mesh = { path = "crates/rg-mesh" }
+rg-anim = { path = "crates/rg-anim" }
+rg-io = { path = "crates/rg-io" }
+rg-script = { path = "crates/rg-script" }
+rg-render = { path = "crates/rg-render" }
+
+[profile.dev]
+opt-level = 1
+[profile.dev.package."*"]
+opt-level = 3
