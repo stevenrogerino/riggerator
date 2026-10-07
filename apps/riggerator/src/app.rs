@@ -1,6 +1,6 @@
 //! Application state, command execution, hotkeys and frame orchestration.
 
-use crate::camera::{CamKind, ViewCamera};
+use crate::camera::CamKind;
 use crate::gl::GlRenderer;
 use crate::viewport::{ManipDrag, ViewPane};
 use crate::windows::{FileDialog, GraphState, RenderJob};
@@ -126,6 +126,7 @@ pub struct WindowFlags {
     pub about: bool,
     pub component_editor: bool,
     pub node_editor: bool,
+    pub uv_editor: bool,
 }
 
 pub struct App {
@@ -305,11 +306,6 @@ impl App {
         self.mel_impl(src, true)
     }
 
-    /// Run MEL without echo (for internal UI plumbing).
-    pub fn mel_quiet(&mut self, src: &str) -> Result<rg_script::Value, String> {
-        self.mel_impl(src, false)
-    }
-
     fn mel_impl(&mut self, src: &str, echo: bool) -> Result<rg_script::Value, String> {
         if echo {
             self.log(LogKind::Command, src.trim().to_string());
@@ -322,7 +318,10 @@ impl App {
         let touched = host.touched_history;
         let out = self.interp.take_output();
         if !out.is_empty() {
-            self.log(LogKind::Output, out.trim_end().to_string());
+            for line in out.trim_end().lines() {
+                let kind = if line.starts_with("// Warning") { LogKind::Warning } else { LogKind::Output };
+                self.log(kind, line.to_string());
+            }
         }
         if touched {
             // file -new/-open or undo/redo replaced the scene
@@ -365,7 +364,10 @@ impl App {
                 "scriptEditor" => self.win.script_editor = true,
                 _ => {}
             },
-            HostRequest::RenderView => {
+            HostRequest::RenderView(cam) => {
+                if let Some(c) = cam.and_then(|c| self.scene.find(&c)) {
+                    self.render_camera = Some(c);
+                }
                 self.win.render_view = true;
                 self.start_render();
             }
@@ -679,12 +681,6 @@ impl App {
     }
 
     // ------------------------------------------------------------- frame --
-
-    pub fn new_pane_cameras(&mut self) {
-        for (i, k) in [CamKind::Persp, CamKind::Top, CamKind::Front, CamKind::Side].into_iter().enumerate() {
-            self.panes[i].cam = ViewCamera::new(k);
-        }
-    }
 
     pub fn visible_panes(&self) -> Vec<usize> {
         match self.layout {

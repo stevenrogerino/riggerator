@@ -81,6 +81,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("polyExtrudeEdge", "-t x y z [edges]"),
     ("polyInset", "-off amount [faces]"),
     ("polySmooth", "-dv divisions [mesh]  Catmull-Clark subdivision"),
+    ("polyBevel", "-o offset [mesh]  chamfer all edges"),
     ("polySplitRing", "-wt weight [edge]  insert edge loop"),
     ("polySelectEdgeLoop", "[edge]  select edge loop"),
     ("polySelectEdgeRing", "[edge]  select edge ring"),
@@ -112,7 +113,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("nodeType", "object"),
     ("objExists", "name"),
     ("file", "-new -f | -o path | -s | -rn path | -i path | -es path | -ea path"),
-    ("render", "-x width -y height -s samples [camera] -o out.png"),
+    ("render", "-x width -y height -s samples [camera] -o out.png  (-sf start -ef end -o img_####.png for sequences)"),
     ("viewFit", "-all  frame selection in the viewport"),
     ("setToolTo", "moveSuperContext|RotateSuperContext|scaleSuperContext|selectSuperContext"),
     ("selectMode", "-object | -co with selectType -v/-e/-f  component mode"),
@@ -1415,6 +1416,13 @@ pub fn dispatch(interp: &mut Interpreter, host: &mut Host, name: &str, raw: Vec<
             host.scene.components.clear();
             Ok(empty)
         }
+        "polyBevel" | "polyBevel3" => {
+            let node = mesh_target(host, &a)?;
+            let off = a.f(&["o", "offset", "fraction", "f"], 0.1) as f32;
+            host.scene.edit_mesh(node, |m| ops::bevel_all(m, off)).unwrap_or(Ok(()))?;
+            host.scene.components.clear();
+            Ok(empty)
+        }
         "polySplitRing" | "insertEdgeLoop" => {
             let node = mesh_target(host, &a)?;
             let edges = sel_edges(host, &a, node);
@@ -1533,6 +1541,10 @@ pub fn dispatch(interp: &mut Interpreter, host: &mut Host, name: &str, raw: Vec<
             let samples = a.u(&["s", "samples"], host.scene.render.samples);
             let out = a.s(&["o", "output"]);
             let cam_name = a.pos_names().first().cloned();
+            if out.is_none() && a.get(&["sf", "startFrame"]).is_none() {
+                host.requests.push(HostRequest::RenderView(cam_name));
+                return Ok(empty);
+            }
             let aspect = w as f32 / h.max(1) as f32;
             let cam = match cam_name {
                 Some(c) => {
@@ -1544,7 +1556,7 @@ pub fn dispatch(interp: &mut Interpreter, host: &mut Host, name: &str, raw: Vec<
                     Some(c) => c,
                     None => {
                         if out.is_none() {
-                            host.requests.push(HostRequest::RenderView);
+                            host.requests.push(HostRequest::RenderView(None));
                             return Ok(empty);
                         }
                         let ev = host.scene.evaluate();
@@ -1555,6 +1567,36 @@ pub fn dispatch(interp: &mut Interpreter, host: &mut Host, name: &str, raw: Vec<
                     }
                 },
             };
+            if let (Some(sf), Some(path)) = (a.get(&["sf", "startFrame"]).map(|v| v[0].as_f64()), out.clone()) {
+                let ef = a.f(&["ef", "endFrame"], sf);
+                let cur = host.scene.time.current;
+                let mut opts = rg_render::RenderOptions::from_scene(host.scene);
+                opts.width = w;
+                opts.height = h;
+                opts.samples = samples.max(1);
+                let mut written = Vec::new();
+                let mut t = sf;
+                while t <= ef + 1e-9 {
+                    host.scene.set_time(t);
+                    let cam = match a.pos_names().first() {
+                        Some(c) => {
+                            let id = host.scene.find(c).ok_or_else(|| format!("no camera {c}"))?;
+                            let ev = host.scene.evaluate();
+                            rg_render::RenderCamera::from_node(host.scene, &ev, id, aspect).ok_or("not a camera")?
+                        }
+                        None => rg_render::scene_camera(host.scene, aspect).unwrap_or_else(|| cam.clone()),
+                    };
+                    let img = rg_render::render(host.scene, &cam, &opts, None);
+                    let frame = format!("{:04}", t.round() as i64);
+                    let p = if path.contains("####") { path.replace("####", &frame) } else { format!("{path}.{frame}.png") };
+                    img.save_png(std::path::Path::new(&p))?;
+                    interp.print(&format!("// rendered frame {} -> {p}\n", crate::value::fmt_float(t)));
+                    written.push(p);
+                    t += 1.0;
+                }
+                host.scene.set_time(cur);
+                return Ok(Value::strings(written));
+            }
             match out {
                 Some(path) => {
                     let mut opts = rg_render::RenderOptions::from_scene(host.scene);
@@ -1566,7 +1608,7 @@ pub fn dispatch(interp: &mut Interpreter, host: &mut Host, name: &str, raw: Vec<
                     Ok(Value::Str(path))
                 }
                 None => {
-                    host.requests.push(HostRequest::RenderView);
+                    host.requests.push(HostRequest::RenderView(None));
                     Ok(empty)
                 }
             }

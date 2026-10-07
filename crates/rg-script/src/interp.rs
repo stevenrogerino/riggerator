@@ -11,7 +11,8 @@ pub enum HostRequest {
     FrameSelected,
     FrameAll,
     OpenWindow(String),
-    RenderView,
+    /// Open the Render View and render (optionally through a named camera).
+    RenderView(Option<String>),
     Playback(bool),
     Message(String),
     SetTool(String),

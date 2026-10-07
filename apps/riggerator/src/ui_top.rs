@@ -250,6 +250,7 @@ fn windows_menu(app: &mut App, ui: &mut egui::Ui) {
     ui.checkbox(&mut app.win.hypershade, "Hypershade");
     ui.checkbox(&mut app.win.node_editor, "Node Editor (relationships)");
     ui.checkbox(&mut app.win.component_editor, "Component Editor");
+    ui.checkbox(&mut app.win.uv_editor, "UV Editor");
     ui.checkbox(&mut app.win.sdk, "Set Driven Key");
     ui.separator();
     ui.checkbox(&mut app.win.render_view, "Render View");
@@ -294,6 +295,7 @@ fn edit_mesh_menu(app: &mut App, ui: &mut egui::Ui) {
     item(app, ui, "Inset", "polyInset -off 0.2;");
     item(app, ui, "Bridge", "polyBridgeEdge;");
     item(app, ui, "Insert Edge Loop", "polySplitRing -wt 0.5;");
+    item(app, ui, "Bevel (all edges)", "polyBevel -o 0.1;");
     item(app, ui, "Poke", "polyPoke;");
     ui.separator();
     item(app, ui, "Merge", "polyMergeVertex -d 0.01;");
@@ -336,6 +338,10 @@ pub fn set_smooth_preview(app: &mut App, lvl: u32) {
 }
 
 fn uv_menu(app: &mut App, ui: &mut egui::Ui) {
+    if act(ui, "UV Editor…") {
+        app.win.uv_editor = true;
+    }
+    ui.separator();
     item(app, ui, "Planar (Y)", "polyPlanarProjection -md y;");
     item(app, ui, "Planar (X)", "polyPlanarProjection -md x;");
     item(app, ui, "Planar (Z)", "polyPlanarProjection -md z;");
@@ -616,6 +622,7 @@ const SHELVES: &[(&str, &[(&str, &str, &str)])] = &[
             ("Inset", "polyInset -off 0.2;", "Inset faces"),
             ("Bridge", "polyBridgeEdge;", "Bridge border edges"),
             ("Loop", "polySplitRing -wt 0.5;", "Insert edge loop on selected edge"),
+            ("Bevel", "polyBevel -o 0.1;", "Bevel (chamfer) all edges"),
             ("Merge", "polyMergeVertex -d 0.01;", "Merge vertices"),
             ("Fill", "polyCloseBorder;", "Fill hole"),
             ("|", "", ""),

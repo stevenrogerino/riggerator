@@ -2,7 +2,6 @@
 
 use egui::{Color32, CornerRadius, Stroke, Visuals};
 
-pub const BG: Color32 = Color32::from_rgb(68, 68, 68);
 pub const PANEL: Color32 = Color32::from_rgb(68, 68, 68);
 pub const FIELD: Color32 = Color32::from_rgb(43, 43, 43);
 pub const WIDGET: Color32 = Color32::from_rgb(93, 93, 93);

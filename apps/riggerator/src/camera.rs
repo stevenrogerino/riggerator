@@ -222,10 +222,6 @@ impl Projector {
     }
 }
 
-pub fn to_v2(p: egui::Pos2) -> Vec2 {
-    Vec2::new(p.x, p.y)
-}
-
 /// Closest parameter `t` along line (o + d t) to a ray (ro + rd s).
 pub fn closest_on_line(o: Vec3, d: Vec3, ro: Vec3, rd: Vec3) -> Option<f32> {
     let w = o - ro;

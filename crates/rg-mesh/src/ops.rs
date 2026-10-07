@@ -588,6 +588,89 @@ pub fn average_vertices(m: &mut Mesh, verts: Option<&[u32]>, iterations: u32, st
     }
 }
 
+// --------------------------------------------------------------- bevel ---
+
+/// Chamfer every edge of a closed mesh (polyBevel on an object, 1 segment).
+/// Each face shrinks by `offset`, edges become quads, vertices become n-gons.
+pub fn bevel_all(m: &mut Mesh, offset: f32) -> Result<(), String> {
+    if !m.boundary_edges().is_empty() {
+        return Err("bevel needs a closed mesh (fill holes first)".into());
+    }
+    let mut out = Mesh { normal_angle: m.normal_angle, ..Default::default() };
+    // corner vertex for (face, corner index)
+    let mut corner: Vec<Vec<u32>> = Vec::with_capacity(m.faces.len());
+    for f in &m.faces {
+        let n = f.verts.len();
+        let mut ids = Vec::with_capacity(n);
+        for i in 0..n {
+            let v = m.positions[f.verts[i] as usize];
+            let prev = m.positions[f.verts[(i + n - 1) % n] as usize];
+            let next = m.positions[f.verts[(i + 1) % n] as usize];
+            let e1 = (prev - v).normalize_or_zero();
+            let e2 = (next - v).normalize_or_zero();
+            // limit so corners never cross the edge midpoint
+            let lim = (prev - v).length().min((next - v).length()) * 0.49;
+            let d = offset.min(lim);
+            out.positions.push(v + (e1 + e2) * d);
+            ids.push((out.positions.len() - 1) as u32);
+        }
+        out.faces.push(Face::new(ids.clone()));
+        corner.push(ids);
+    }
+    // locate (face, corner) by directed edge a->b
+    let mut dir: HashMap<(u32, u32), (usize, usize)> = HashMap::new();
+    for (fi, f) in m.faces.iter().enumerate() {
+        let n = f.verts.len();
+        for i in 0..n {
+            dir.insert((f.verts[i], f.verts[(i + 1) % n]), (fi, i));
+        }
+    }
+    let cid = |fi: usize, ci: usize| corner[fi][ci];
+    let mut links: HashMap<u32, Vec<(u32, u32)>> = HashMap::new();
+    let mut done: HashSet<Edge> = HashSet::new();
+    for (fi, f) in m.faces.iter().enumerate() {
+        let n = f.verts.len();
+        for i in 0..n {
+            let (a, b) = (f.verts[i], f.verts[(i + 1) % n]);
+            if !done.insert(Edge::new(a, b)) {
+                continue;
+            }
+            let Some(&(f2, j)) = dir.get(&(b, a)) else { return Err("non-manifold edge".into()) };
+            let n2 = m.faces[f2].verts.len();
+            // corners: F1(a)=i, F1(b)=i+1 ; F2(b)=j, F2(a)=j+1
+            let f1a = cid(fi, i);
+            let f1b = cid(fi, (i + 1) % n);
+            let f2b = cid(f2, j);
+            let f2a = cid(f2, (j + 1) % n2);
+            out.faces.push(Face::new(vec![f1b, f1a, f2a, f2b]));
+            // vertex-polygon links (opposite direction to the strip edges)
+            links.entry(a).or_default().push((f2a, f1a));
+            links.entry(b).or_default().push((f1b, f2b));
+        }
+    }
+    for (_, ls) in links {
+        if ls.len() < 3 {
+            continue;
+        }
+        let next: HashMap<u32, u32> = ls.iter().copied().collect();
+        let start = ls[0].0;
+        let mut poly = vec![start];
+        let mut cur = start;
+        while let Some(&nx) = next.get(&cur) {
+            if nx == start || poly.len() > ls.len() {
+                break;
+            }
+            poly.push(nx);
+            cur = nx;
+        }
+        if poly.len() >= 3 {
+            out.faces.push(Face::new(poly));
+        }
+    }
+    *m = out;
+    Ok(())
+}
+
 // ------------------------------------------------------------ edge loop ---
 
 /// Walk the quad ring starting at `start` and return the ring faces with
@@ -1058,6 +1141,21 @@ mod tests {
         quadrangulate(&mut c, 1.0);
         assert_eq!(c.faces.len(), 6);
         assert!(c.validate().is_empty(), "{:?}", c.validate());
+    }
+
+    #[test]
+    fn bevel_cube() {
+        let mut c = cube(2.0, 2.0, 2.0, 1, 1, 1);
+        bevel_all(&mut c, 0.2).unwrap();
+        // 6 faces + 12 edge quads + 8 corner triangles
+        assert_eq!(c.faces.len(), 26);
+        assert_eq!(c.positions.len(), 24);
+        assert!(c.validate().is_empty(), "{:?}", c.validate());
+        assert!(c.boundary_edges().is_empty());
+        assert_eq!(euler(&c), 2);
+        for fi in 0..c.faces.len() {
+            assert!(c.face_normal(fi).dot(c.face_center(fi)) > 0.0, "face {fi} inward");
+        }
     }
 
     #[test]

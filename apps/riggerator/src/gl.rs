@@ -107,6 +107,8 @@ pub struct DrawList {
     pub lines_top: Vec<f32>,
     /// pos(3) color(4), translucent overlay triangles
     pub tris_overlay: Vec<f32>,
+    /// overlay triangles drawn without depth test (smooth-preview cages)
+    pub tris_overlay_top: Vec<f32>,
     pub lights: Vec<GlLight>,
     pub use_lights: bool,
     pub xray: bool,
@@ -502,6 +504,9 @@ impl GlRenderer {
             }
             // overlay lines
             gl.disable(glow::DEPTH_TEST);
+            if !dl.tris_overlay_top.is_empty() {
+                self.draw_prims(gl, &dl.tris_overlay_top, vp, glow::TRIANGLES);
+            }
             self.draw_lines(gl, &dl.lines_top, vp, false);
             gl.disable(glow::BLEND);
             gl.use_program(None);

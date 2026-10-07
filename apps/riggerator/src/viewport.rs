@@ -6,7 +6,7 @@ use crate::gl::{self, CpuMesh, DrawItem, DrawList, GlLight, MeshKey, TexMode};
 use crate::theme;
 use egui::{Color32, Pos2, Rect, Sense, Stroke};
 use glam::{Mat4, Quat, Vec3};
-use rg_core::mesh::{Edge, Mesh};
+use rg_core::mesh::Mesh;
 use rg_core::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -1335,8 +1335,9 @@ fn build_draw_list(app: &mut App, idx: usize, pr: &Projector, view: Mat4, proj: 
                     for &f in &c.faces {
                         let Some(face) = m.faces.get(f as usize) else { continue };
                         let pts: Vec<Vec3> = face.verts.iter().map(|&v| model.transform_point3(m.positions[v as usize])).collect();
+                        let target = if smooth_level > 0 { &mut dl.tris_overlay_top } else { &mut dl.tris_overlay };
                         for t in rg_core::mesh::triangulate_polygon(&pts, rg_core::mesh::newell_normal(pts.iter().copied())) {
-                            gl::push_tri(&mut dl.tris_overlay, pts[t[0] as usize], pts[t[1] as usize], pts[t[2] as usize], [1.0, 0.45, 0.1, 0.45]);
+                            gl::push_tri(target, pts[t[0] as usize], pts[t[1] as usize], pts[t[2] as usize], [1.0, 0.45, 0.1, 0.45]);
                         }
                     }
                 }
@@ -1365,7 +1366,7 @@ fn build_draw_list(app: &mut App, idx: usize, pr: &Projector, view: Mat4, proj: 
 
     // non-mesh shapes as lines (+ pick segments)
     let mut picks: Vec<(NodeId, Pos2, Pos2)> = Vec::new();
-    let mut add = |dl: &mut DrawList, picks: &mut Vec<(NodeId, Pos2, Pos2)>, id: NodeId, a: Vec3, b: Vec3, c: [f32; 4], top: bool| {
+    let add = |dl: &mut DrawList, picks: &mut Vec<(NodeId, Pos2, Pos2)>, id: NodeId, a: Vec3, b: Vec3, c: [f32; 4], top: bool| {
         if top {
             gl::push_line(&mut dl.lines_top, a, b, c);
         } else {
@@ -1749,8 +1750,4 @@ impl CloneLight for Scene {
         }
         s
     }
-}
-
-pub fn edges_of(m: &Mesh) -> Vec<Edge> {
-    m.edges()
 }

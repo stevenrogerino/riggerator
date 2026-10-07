@@ -197,6 +197,7 @@ pub fn show_windows(app: &mut App, ctx: &egui::Context) {
     editors::about(app, ctx);
     editors::component_editor(app, ctx);
     editors::node_editor(app, ctx);
+    editors::uv_editor(app, ctx);
     file_dialog(app, ctx);
     editors::confirm(app, ctx);
 }

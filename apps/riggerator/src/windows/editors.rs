@@ -408,3 +408,62 @@ fn do_pending(app: &mut App, ctx: &egui::Context, a: PendingAction) {
         PendingAction::Quit => ctx.send_viewport_cmd(egui::ViewportCommand::Close),
     }
 }
+
+pub fn uv_editor(app: &mut App, ctx: &egui::Context) {
+    let mut open = app.win.uv_editor;
+    if !open {
+        return;
+    }
+    egui::Window::new("UV Editor").open(&mut open).default_size([460.0, 500.0]).show(ctx, |ui| {
+        let node = app.scene.components.node.or(app.scene.selection.last().copied());
+        let Some(node) = node.filter(|n| app.scene.nodes.get(n).is_some_and(|x| x.mesh().is_some())) else {
+            ui.label("Select a polygon mesh.");
+            return;
+        };
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(app.scene.name_of(node)).strong());
+            for (l, c) in [("Planar Y", "polyPlanarProjection -md y;"), ("Planar X", "polyPlanarProjection -md x;"), ("Planar Z", "polyPlanarProjection -md z;"), ("Cylindrical", "polyCylindricalProjection;")] {
+                if ui.button(l).clicked() {
+                    let _ = app.mel(c);
+                }
+            }
+        });
+        let m = app.scene.nodes[&node].mesh().unwrap().mesh.clone();
+        let size = ui.available_width().min(ui.available_height()).max(100.0);
+        let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
+        let p = ui.painter_at(rect);
+        // checker background for 0..1 tile
+        let n = 8;
+        for i in 0..n {
+            for j in 0..n {
+                let c = if (i + j) % 2 == 0 { Color32::from_gray(70) } else { Color32::from_gray(58) };
+                let cell = rect.width() / n as f32;
+                p.rect_filled(egui::Rect::from_min_size(rect.min + egui::vec2(i as f32 * cell, j as f32 * cell), egui::vec2(cell, cell)), 0.0, c);
+            }
+        }
+        let to = |u: glam::Vec2| egui::pos2(rect.left() + u.x * rect.width(), rect.bottom() - u.y * rect.height());
+        let sel_faces = if app.scene.components.node == Some(node) && app.scene.components.mode == ComponentMode::Face { app.scene.components.faces.clone() } else { Default::default() };
+        let mut drawn = 0usize;
+        for (fi, f) in m.faces.iter().enumerate() {
+            if !f.has_uvs() {
+                continue;
+            }
+            let pts: Vec<egui::Pos2> = f.uvs.iter().filter_map(|&u| m.uvs.get(u as usize)).map(|u| to(*u)).collect();
+            if pts.len() != f.len() {
+                continue;
+            }
+            if sel_faces.contains(&(fi as u32)) {
+                p.add(egui::Shape::convex_polygon(pts.clone(), Color32::from_rgba_unmultiplied(255, 140, 20, 80), egui::Stroke::NONE));
+            }
+            let mut closed = pts.clone();
+            closed.push(pts[0]);
+            p.add(egui::Shape::line(closed, egui::Stroke::new(1.0, Color32::from_rgb(120, 200, 255))));
+            drawn += 1;
+        }
+        p.rect_stroke(rect, 0.0, egui::Stroke::new(1.0, Color32::from_gray(150)), egui::StrokeKind::Inside);
+        if drawn == 0 {
+            p.text(rect.center(), egui::Align2::CENTER_CENTER, "No UVs — use a projection above", egui::FontId::proportional(14.0), Color32::WHITE);
+        }
+    });
+    app.win.uv_editor = open;
+}
