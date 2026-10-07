@@ -14,6 +14,8 @@ pub enum HostRequest {
     RenderView,
     Playback(bool),
     Message(String),
+    SetTool(String),
+    ComponentMode(String),
 }
 
 pub struct Host<'a> {

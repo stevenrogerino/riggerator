@@ -114,6 +114,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("file", "-new -f | -o path | -s | -rn path | -i path | -es path | -ea path"),
     ("render", "-x width -y height -s samples [camera] -o out.png"),
     ("viewFit", "-all  frame selection in the viewport"),
+    ("setToolTo", "moveSuperContext|RotateSuperContext|scaleSuperContext|selectSuperContext"),
+    ("selectMode", "-object | -co with selectType -v/-e/-f  component mode"),
     ("undo", ""),
     ("redo", ""),
     ("help", "[command]"),
@@ -153,6 +155,7 @@ fn zero_arity(cmd: &str, flag: &str) -> bool {
         "curve" => ["per_"].contains(&flag),
         "skinCluster" => ["tsb", "toSelectedBones", "ub", "unbind"].contains(&flag),
         "viewFit" => ["all", "a"].contains(&flag),
+        "selectMode" | "selectType" => true,
         "setKeyframe" => ["breakdown", "hierarchy"].contains(&flag),
         "polyChipOff" => false,
         "play" => ["f", "forward"].contains(&flag),
@@ -1593,6 +1596,24 @@ pub fn dispatch(interp: &mut Interpreter, host: &mut Host, name: &str, raw: Vec<
             }
         }
         "refresh" | "currentUnit" | "requires" | "fileInfo" | "undoInfo" | "flushUndo" | "dgdirty" => Ok(empty),
+        "setToolTo" => {
+            let t = a.pos_strings().first().cloned().unwrap_or_default();
+            host.requests.push(HostRequest::SetTool(t));
+            Ok(empty)
+        }
+        "selectMode" | "selectType" => {
+            let m = if a.has(&["co", "component"]) || a.has(&["v", "vertex"]) {
+                "vertex"
+            } else if a.has(&["e", "edge"]) {
+                "edge"
+            } else if a.has(&["f", "facet"]) {
+                "face"
+            } else {
+                "object"
+            };
+            host.requests.push(HostRequest::ComponentMode(m.into()));
+            Ok(empty)
+        }
         "showWindow" | "window" => {
             host.requests.push(HostRequest::OpenWindow(a.pos_strings().first().cloned().unwrap_or_default()));
             Ok(empty)

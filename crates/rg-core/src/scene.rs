@@ -1541,6 +1541,17 @@ pub fn node_set_attr(n: &mut Node, attr: &str, value: f64, force: bool) -> Resul
             "rotatePivotY" => t.pivot.y = v,
             "rotatePivotZ" => t.pivot.z = v,
             "rotateOrder" => t.rotate_order = RotateOrder::ALL[(value as usize).min(5)],
+            "overrideColor" | "ovc" => {
+                n.color = maya_index_color(value as usize);
+            }
+            "overrideEnabled" | "ove" => {
+                if value < 0.5 {
+                    n.color = None;
+                }
+            }
+            "overrideColorR" => n.color = Some(n.color.unwrap_or(Vec3::ONE) * Vec3::new(0.0, 1.0, 1.0) + Vec3::X * v),
+            "overrideColorG" => n.color = Some(n.color.unwrap_or(Vec3::ONE) * Vec3::new(1.0, 0.0, 1.0) + Vec3::Y * v),
+            "overrideColorB" => n.color = Some(n.color.unwrap_or(Vec3::ONE) * Vec3::new(1.0, 1.0, 0.0) + Vec3::Z * v),
             _ => {
                 if let Some(u) = n.user_attrs.get_mut(&a) {
                     *u = value;
@@ -1552,3 +1563,19 @@ pub fn node_set_attr(n: &mut Node, attr: &str, value: f64, force: bool) -> Resul
         Ok(())
 }
 
+
+/// Maya's drawing-override color index palette.
+pub fn maya_index_color(i: usize) -> Option<Vec3> {
+    const P: [[f32; 3]; 32] = [
+        [0.47, 0.47, 0.47], [0.0, 0.0, 0.0], [0.25, 0.25, 0.25], [0.6, 0.6, 0.6], [0.61, 0.0, 0.16], [0.0, 0.02, 0.38],
+        [0.0, 0.0, 1.0], [0.0, 0.27, 0.1], [0.15, 0.0, 0.26], [0.78, 0.0, 0.78], [0.54, 0.28, 0.2], [0.25, 0.14, 0.12],
+        [0.6, 0.15, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.25, 0.6], [1.0, 1.0, 1.0], [1.0, 1.0, 0.0],
+        [0.39, 0.86, 1.0], [0.26, 1.0, 0.64], [1.0, 0.69, 0.69], [0.89, 0.67, 0.47], [1.0, 1.0, 0.39], [0.0, 0.6, 0.33],
+        [0.63, 0.41, 0.19], [0.62, 0.63, 0.19], [0.41, 0.63, 0.19], [0.19, 0.63, 0.37], [0.19, 0.63, 0.63], [0.19, 0.4, 0.63],
+        [0.44, 0.19, 0.63], [0.63, 0.19, 0.41],
+    ];
+    if i == 0 {
+        return None;
+    }
+    P.get(i).map(|c| Vec3::new(c[0], c[1], c[2]))
+}
