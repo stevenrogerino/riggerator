@@ -1,0 +1,54 @@
+// Riggerator showcase scene: run with
+//   cargo run --release -p rg-batch -- -script examples/showcase.mel -render showcase.png
+file -new -f;
+
+polyPlane -w 30 -h 30 -sx 1 -sy 1 -n ground;
+string $floor = `shadingNode -asShader lambert -n floorMat`;
+setAttr ($floor + ".color") -type double3 0.55 0.55 0.58;
+hyperShade -assign $floor;
+
+polySphere -r 1 -sa 32 -sh 24 -n redBall;
+move 0 1 0;
+string $red = `shadingNode -asShader blinn -n redPaint`;
+setAttr ($red + ".color") -type double3 0.8 0.08 0.05;
+setAttr ($red + ".eccentricity") 0.25;
+hyperShade -assign $red;
+
+polyCube -w 1.6 -h 1.6 -d 1.6 -n goldCube;
+polySmooth -dv 2;
+move 2.6 0.8 -0.6;
+rotate 0 30 0;
+string $gold = `shadingNode -asShader standardSurface -n gold`;
+setAttr ($gold + ".baseColor") -type double3 1.0 0.76 0.33;
+setAttr ($gold + ".metalness") 1;
+setAttr ($gold + ".specularRoughness") 0.3;
+hyperShade -assign $gold;
+
+polyTorus -r 0.9 -sr 0.3 -sa 40 -sh 20 -n glassRing;
+move -2.6 0.3 0.3;
+string $glass = `shadingNode -asShader standardSurface -n glass`;
+setAttr ($glass + ".baseColor") -type double3 0.9 0.95 1.0;
+setAttr ($glass + ".transmission") 1;
+setAttr ($glass + ".specularRoughness") 0.02;
+hyperShade -assign $glass;
+
+polyCylinder -r 0.4 -h 3 -sa 24 -sh 12 -n bentPipe;
+move 0 1.5 -3;
+nonLinear -type bend -curvature 1.2;
+string $teal = `shadingNode -asShader phong -n teal`;
+setAttr ($teal + ".color") -type double3 0.1 0.6 0.6;
+hyperShade -assign $teal;
+
+areaLight -i 3 -n key;
+move -3 6 4; rotate -50 -35 0; scale 2 2 2;
+directionalLight -i 0.6 -rgb 1 0.95 0.85 -n sun;
+rotate -40 50 0;
+
+camera -fl 40 -n shotCam;
+move 0 3.2 9.5; rotate -15 0 0;
+
+setAttr defaultResolution.width 640;
+setAttr defaultResolution.height 360;
+setAttr defaultRenderGlobals.samples 48;
+setAttr defaultRenderGlobals.maxBounces 4;
+print "showcase scene built\n";

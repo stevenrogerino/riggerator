@@ -293,6 +293,15 @@ impl Scene {
         }
     }
 
+    /// The wanted name if free, otherwise the next numbered variant.
+    pub fn unique_exact(&self, wanted: &str) -> String {
+        if !wanted.is_empty() && !self.name_exists(wanted) {
+            wanted.to_string()
+        } else {
+            self.unique_name(wanted)
+        }
+    }
+
     pub fn rename(&mut self, id: NodeId, name: &str) -> String {
         let clean: String = name.chars().map(|c| if c.is_alphanumeric() || c == '_' { c } else { '_' }).collect();
         let current = self.nodes.get(&id).map(|n| n.name.clone());
@@ -773,7 +782,7 @@ impl Scene {
     // ---------------------------------------------------------- materials --
 
     pub fn create_material(&mut self, name: &str, shader: crate::material::ShaderType) -> String {
-        let name = self.unique_name(name);
+        let name = self.unique_exact(name);
         self.materials.insert(name.clone(), Material::new(&name, shader));
         self.touch();
         name
@@ -936,7 +945,9 @@ impl Scene {
             }
             out.push(c);
         }
+        let name = self.name_of(id);
         self.delete(id);
+        self.rename(grp, &name);
         out
     }
 

@@ -1,6 +1,11 @@
 [package]
 name = "rg-batch"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
+rg-core.workspace = true
+rg-io.workspace = true
+rg-script.workspace = true
+rg-render.workspace = true

@@ -706,7 +706,7 @@ pub fn insert_edge_loop(m: &mut Mesh, start: Edge, t: f32) -> usize {
     }
     // split points keyed by undirected edge
     let mut split: HashMap<Edge, u32> = HashMap::new();
-    let get_split = |m: &mut Mesh, o: u32, x: u32| -> u32 {
+    let mut get_split = |m: &mut Mesh, o: u32, x: u32| -> u32 {
         *split.entry(Edge::new(o, x)).or_insert_with(|| {
             let p = m.positions[o as usize].lerp(m.positions[x as usize], t);
             m.positions.push(p);
@@ -740,7 +740,7 @@ pub fn insert_edge_loop(m: &mut Mesh, start: Edge, t: f32) -> usize {
             let uv = |v: u32| -> Option<Vec2> {
                 old.verts.iter().position(|&w| w == v).map(|i| m.uvs[old.uvs[i] as usize])
             };
-            let mut assign = |f: &mut Face, uvs_store: &mut Vec<Vec2>| {
+            let assign = |f: &mut Face, uvs_store: &mut Vec<Vec2>| {
                 let mut ids = Vec::new();
                 for &v in &f.verts {
                     let p = match uv(v) {
